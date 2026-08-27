@@ -4,7 +4,7 @@
 
 # WAIT — 財務ユニットエコノミクスの検証待ち
 
-Commercial DDでは選択的な投資を支持する証拠が得られましたが、Olist公開データだけではROI / IRRを識別できません。
+Commercial DDでは選択的な投資を支持する証拠が得られました。一方、Olist公開データにはtake rate、margin、CAC、incremental investment、cash flowがなく、ROI / IRRを識別できません。
 
 したがって、
 
@@ -14,91 +14,107 @@ Commercial DDでは選択的な投資を支持する証拠が得られました�
 
 とします。
 
-Financial DDを通過した場合は、市場全体への均等配分ではなく、成長・顧客体験・seller diversificationが同時に確認されたsegmentへ重点配分します。
-
 ## Financial DD通過時の推奨相対配分
 
-| 優先度 | Segment | Allocation |
+候補は手入力せず、全category × stateへ機械的なopportunity screenとrisk screenを適用し、baseline score上位5を採用します。
+
+| 優先度 | Segment | Relative allocation |
 |---|---|---:|
-| コア | health_beauty × SP | ~40% |
-| コア | housewares × SP | ~25% |
-| 高成長・要監視 | watches_gifts × SP | ~20% |
-| 拡張候補 | health_beauty × MG | ~10–15% |
-| 除外 | watches_gifts × RJ | 0% |
+| 1 | **health_beauty × SP** | **28.71%** |
+| 2 | **bed_bath_table × SP** | **18.39%** |
+| 3 | **sports_leisure × SP** | **18.20%** |
+| 4 | **housewares × SP** | **18.13%** |
+| 5 | **computers_accessories × SP** | **16.58%** |
 
-この配分率はfinancial return forecastではなく、**observed marketplace evidenceに基づくrelative resource-allocation priority**です。
+この配分はfinancial return forecastではなく、observed marketplace evidenceに基づくrelative resource-allocation priorityです。
 
----
+## 最有力segment
 
-## 判断根拠
+`health_beauty × SP` は引き続き1位です。
 
-市場全体は2017年に急拡大した一方、2018年にはorders / active customers / GMVが横ばい化する兆候があります。
+- Current GMV: **R$275,923**
+- Absolute GMV growth: **+R$205,740**
+- GMV growth: **+293%**
+- Late delivery rate: **7.10%**
+- Late delivery Wilson 95% CI: **[6.31%, 7.97%]**
+- Market late delivery rate: **8.17%**
+- Low-review rate: **10.34%**
+- Low-review Wilson 95% CI: **[9.41%, 11.36%]**
+- Market low-review rate: **14.62%**
+- Top-3 seller GMV share: **21.78%**
 
-AOVには明確な上昇トレンドがなく、成長は主にcustomer acquisitionとorder volumeで説明されます。
+Point estimateだけでなく、比率KPIのsampling uncertaintyも明示します。
 
-また、returning customersは月次active customersの約2〜3%に留まり、完全な観測期間を持つcohortの90-day repeat rateは加重平均で約 **2.34%** でした。
+## Model specification robustness
 
-したがって、marketplace全体としては新規顧客獲得への依存が大きいと判断します。
+Baseline scoreは、
 
-一方、成長はsegment間で均一ではありません。
+$$
+Score_s
+=
+GMV_s^{0.5}\Delta GMV_s^{0.5}(1-Concentration_s)
+$$
 
-最有力の **health_beauty × SP** は以下の特徴を持ちます。
+というheuristicです。
 
-- 2018年2–8月 商品GMV: R$275,923
-- 同期間比較のabsolute GMV growth: +R$205,740
-- GMV growth: +293%
-- Late delivery rate: 7.10%
-- Market late delivery rate: 8.17%
-- Average review score: 4.28
-- Low-review rate: 10.34%
-- Market low-review rate: 14.62%
-- Sellers: 303
-- Top-3 seller GMV share: 21.78%
+この任意性を検証するため、
 
-つまり、**scale + growth + customer experience + supply diversification** が同時に成立しています。
+$$
+Score_s(\alpha,\beta,\gamma)
+=
+GMV_s^{\alpha}\Delta GMV_s^{\beta}(1-Concentration_s)^{\gamma}
+$$
 
-Seller concentration adjustmentの有無を比較しても、`health_beauty × SP` はallocation順位1位を維持します。
+として、
 
----
+```text
+alpha ∈ {0.25, 0.50, 0.75, 1.00}
+beta  ∈ {0.25, 0.50, 0.75, 1.00}
+gamma ∈ {0.00, 0.50, 1.00, 1.50, 2.00}
+```
+
+の**80 specifications**を評価します。
+
+ローカル再計算では、`health_beauty × SP` は**80/80 specificationsでrank 1**を維持しました。したがってトップ候補の結論は、平方根やseller concentration penaltyの特定仕様だけには依存していません。
+
+## Candidate selection robustness
+
+旧版では候補5segmentをSQLへ直接記述していました。これは再現性の弱点だったため廃止しました。
+
+現在は全category × stateから、
+
+1. 両比較期間で観測
+2. current GMV >= 95th percentile
+3. current orders >= 100
+4. positive absolute GMV growth
+5. positive market-share change
+6. operational risk gate
+
+の順に候補を生成します。
+
+さらにGMV percentileを90〜97.5、minimum ordersを50〜200で変える12条件を確認し、`health_beauty × SP` がopportunity screenから脱落しないことを確認します。
 
 ## Downside Risk
 
 ### 1. 新規顧客獲得依存
 
-短期repeat purchasingが弱いため、新規顧客流入が鈍化するとorders / GMVも鈍化する可能性があります。
+90-day repeatが低く、market growthは新規顧客流入への依存が大きい状態です。Acquisition engineが弱まればGMV growthも鈍化する可能性があります。
 
-### 2. Seller集中
+### 2. Seller concentration
 
-特に **watches_gifts × SP** は、
+Top-3 seller shareをscoreに含めていますが、penalty強度は構造推定値ではありません。そのためgammaを0〜2まで振ってrank stabilityを検証します。
 
-- Top-1 seller GMV share: 18.45%
-- Top-3 seller GMV share: 44.66%
+### 3. Operational quality
 
-と集中度が高いです。
+Opportunity screenを通っても、late deliveryとlow reviewの両方がmarketより悪いsegmentは除外します。代表例として`watches_gifts × RJ` は旧分析同様、risk gateを通過しません。
 
-Seller concentration adjustmentを行うとallocationは、
+### 4. Screening assumptions
 
-- 調整なし: 28.79%
-- 調整あり: 22.12%
-
-まで低下します。
-
-### 3. Operational Risk
-
-**watches_gifts × RJ** は、
-
-- Late delivery rate: 14.65%（market 8.17%）
-- Low-review rate: 22.42%（market 14.62%）
-- Average review score: 3.80
-- Top-3 seller GMV share: 41.87%
-
-となっており、GMV growthが高くても現時点ではallocation対象から除外します。
-
----
+95th-percentile GMV thresholdと100-order thresholdは意思決定上のscreening assumptionsです。データ生成過程から推定された自然定数ではないため、sensitivity analysis対象とします。
 
 ## ROI / IRRを算出しない理由
 
-Olist公開データには以下が含まれていません。
+公開データには以下がありません。
 
 - take rate
 - net revenue
@@ -111,15 +127,9 @@ Olist公開データには以下が含まれていません。
 
 さらに、投資によるincremental GMVの因果効果も識別できません。
 
-そのため、ROI / IRR / expected profitを直接推定するとfalse precisionになります。
-
-Commercial DDは**どのsegmentへ優先配分するか**を回答し、Financial DDは**その投資が必要リターンを満たすか**を検証する役割と分けます。
-
----
+したがって、Commercial DDは**どのsegmentを優先するか**を回答し、Financial DDは**その投資が必要リターンを満たすか**を検証する役割と分離します。
 
 ## WAITからINVESTへ移行する条件
-
-追加で以下を確認します。
 
 1. segment-level take rate
 2. contribution margin
@@ -129,48 +139,18 @@ Commercial DDは**どのsegmentへ優先配分するか**を回答し、Financia
 6. incremental marketing / operating investment
 7. investment -> incremental GMVの期待効果
 
-これらが投資ハードルを満たす場合、最終判断を`WAIT`から`INVEST`へ変更します。
-
----
+これらを取得し、投資ハードルを満たすことを確認した場合に`INVEST`へ変更します。
 
 ## 再評価・撤退トリガー
 
-### 1. Growth Thesis Break
-
-候補segmentのcomparable-period absolute GMV growthが0以下になった場合、追加allocationを停止します。
-
-### 2. Relative Market Position Deterioration
-
-対象categoryのGMV shareが継続的に低下し、市場全体の成長を下回る場合、allocation priorityを引き下げます。
-
-### 3. Operational Quality Deterioration
-
-以下が同時に成立した場合、そのsegmentをeligibilityから除外します。
-
-$$
-LateRate_s > LateRate_{market}
-$$
-
-かつ
-
-$$
-LowReviewRate_s > LowReviewRate_{market}
-$$
-
-### 4. Seller Concentration
-
-Top-3 seller GMV shareが約40%を超え、allocation recommendationがconcentration assumptionに大きく依存する場合、配分を縮小または再評価します。
-
-### 5. Acquisition Engine Weakening
-
-Market-wide active customersとGMVが持続的に減少し、repeat purchasingがその減少を補えない場合、market-level thesis自体を再評価します。
-
----
+- comparable-period absolute GMV growth <= 0
+- GMV shareの継続低下
+- late deliveryとlow reviewがともにmarket benchmarkを上回る
+- seller concentration悪化によりrankが仕様依存になる
+- active customers / GMVの継続減少をrepeat purchasingで補えない
 
 ## 結論
 
-**現時点の最終判断はWAITです。**
+最終判断は**WAIT**です。
 
-ただしCommercial DD上の最優先segmentは **health_beauty × SP** であり、Financial DD通過時には約40%の相対配分を起点とします。
-
-市場全体へ広く投資するのではなく、需要成長とoperational qualityが同時に確認できるsegmentへ選択的に資源配分する方針です。
+ただしCommercial DD上では、機械的な候補生成・比率KPIのconfidence interval・80通りのscore specificationを導入しても、**health_beauty × SPが最優先segment**という結論は維持されます。

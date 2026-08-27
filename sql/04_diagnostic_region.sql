@@ -1,278 +1,133 @@
 -- ============================================================
 -- Olist Diagnostic Analysis: Regional Opportunity
 -- ============================================================
-
--- ============================================================
--- 0. Sources
+-- Purpose:
+--   Evaluate every category x customer_state pair using one
+--   reproducible screening rule. No manually curated candidate list.
+--
+-- Comparable periods:
+--   Prior:   2017-02-01 <= purchase < 2017-09-01
+--   Current: 2018-02-01 <= purchase < 2018-09-01
 -- ============================================================
 
 CREATE OR REPLACE TEMP VIEW item_base AS
 SELECT *
 FROM read_parquet('data/processed/item_base.parquet');
 
-
 -- ============================================================
--- 1. Candidate Category x State Scale
+-- 1. Comparable-period metrics for ALL category x state pairs
 -- ============================================================
 
--- Objective:
---   Identify geographic concentrations within the shortlisted
---   investment candidate categories.
---
--- Candidate categories:
---   health_beauty
---   watches_gifts
---   housewares
---   auto
---   baby
-
-
+CREATE OR REPLACE TEMP VIEW category_state_comparable AS
 SELECT
     product_category_name_english AS category,
     customer_state,
 
-    ROUND(
-        SUM(merchandise_value),
-        2
-    ) AS merchandise_gmv,
+    SUM(merchandise_value) FILTER (
+        WHERE order_purchase_timestamp >= TIMESTAMP '2017-02-01'
+          AND order_purchase_timestamp <  TIMESTAMP '2017-09-01'
+    ) AS gmv_prior,
 
-    COUNT(DISTINCT order_id) AS orders,
+    SUM(merchandise_value) FILTER (
+        WHERE order_purchase_timestamp >= TIMESTAMP '2018-02-01'
+          AND order_purchase_timestamp <  TIMESTAMP '2018-09-01'
+    ) AS gmv_current,
 
-    COUNT(DISTINCT customer_unique_id) AS customers,
+    COUNT(DISTINCT order_id) FILTER (
+        WHERE order_purchase_timestamp >= TIMESTAMP '2017-02-01'
+          AND order_purchase_timestamp <  TIMESTAMP '2017-09-01'
+    ) AS orders_prior,
 
-    ROUND(
-        SUM(merchandise_value)
-        / NULLIF(COUNT(DISTINCT order_id), 0),
-        2
-    ) AS aov,
-
-    ROUND(
-        100.0 * SUM(merchandise_value)
-        / SUM(SUM(merchandise_value)) OVER (
-            PARTITION BY product_category_name_english
-        ),
-        2
-    ) AS category_gmv_share_pct
+    COUNT(DISTINCT order_id) FILTER (
+        WHERE order_purchase_timestamp >= TIMESTAMP '2018-02-01'
+          AND order_purchase_timestamp <  TIMESTAMP '2018-09-01'
+    ) AS orders_current
 
 FROM item_base
+GROUP BY 1, 2;
 
-WHERE product_category_name_english IN (
-    'health_beauty',
-    'watches_gifts',
-    'housewares',
-    'auto',
-    'baby'
-)
+CREATE OR REPLACE TEMP VIEW market_comparable AS
+SELECT
+    SUM(merchandise_value) FILTER (
+        WHERE order_purchase_timestamp >= TIMESTAMP '2017-02-01'
+          AND order_purchase_timestamp <  TIMESTAMP '2017-09-01'
+    ) AS market_gmv_prior,
 
-GROUP BY
-    category,
-    customer_state
+    SUM(merchandise_value) FILTER (
+        WHERE order_purchase_timestamp >= TIMESTAMP '2018-02-01'
+          AND order_purchase_timestamp <  TIMESTAMP '2018-09-01'
+    ) AS market_gmv_current
+FROM item_base;
 
-QUALIFY ROW_NUMBER() OVER (
-    PARTITION BY category
-    ORDER BY SUM(merchandise_value) DESC
-) <= 5
-
-ORDER BY
-    category,
-    merchandise_gmv DESC;
-
+CREATE OR REPLACE TEMP VIEW category_state_opportunity AS
+SELECT
+    c.category,
+    c.customer_state,
+    c.gmv_prior,
+    c.gmv_current,
+    c.orders_prior,
+    c.orders_current,
+    c.gmv_current - c.gmv_prior AS absolute_gmv_growth,
+    100.0 * (c.gmv_current - c.gmv_prior) / NULLIF(c.gmv_prior, 0) AS gmv_growth_pct,
+    100.0 * c.gmv_prior / NULLIF(m.market_gmv_prior, 0) AS gmv_share_prior_pct,
+    100.0 * c.gmv_current / NULLIF(m.market_gmv_current, 0) AS gmv_share_current_pct,
+    100.0 * c.gmv_current / NULLIF(m.market_gmv_current, 0)
+      - 100.0 * c.gmv_prior / NULLIF(m.market_gmv_prior, 0) AS gmv_share_change_pp
+FROM category_state_comparable c
+CROSS JOIN market_comparable m
+WHERE c.gmv_prior > 0
+  AND c.gmv_current > 0;
 
 -- ============================================================
--- 2. Candidate Category x State Growth
+-- 2. Mechanical screening rule
 -- ============================================================
-
--- Objective:
---   Identify regions that combine meaningful scale with positive
---   growth within the shortlisted investment categories.
+-- Rule is intentionally simple and inspectable:
+--   - observed in both comparable periods
+--   - current GMV >= 95th percentile across observed segments
+--   - current orders >= 100
+--   - positive absolute GMV growth
+--   - positive GMV-share change vs market
 --
--- Comparable periods:
---   Prior period:   2017-02-01 <= purchase < 2017-09-01
---   Current period: 2018-02-01 <= purchase < 2018-09-01
+-- The 95th-percentile and 100-order thresholds are assumptions and
+-- are tested explicitly in sql/07_uncertainty.sql.
 
+CREATE OR REPLACE TEMP VIEW opportunity_thresholds AS
+SELECT
+    QUANTILE_CONT(gmv_current, 0.95) AS min_current_gmv,
+    100::BIGINT AS min_current_orders
+FROM category_state_opportunity;
 
--- ============================================================
--- 2.1 Shortlisted Category-State Pairs
--- ============================================================
+CREATE OR REPLACE TEMP VIEW opportunity_screen AS
+SELECT
+    o.*,
+    t.min_current_gmv,
+    t.min_current_orders,
+    (
+        o.gmv_current >= t.min_current_gmv
+        AND o.orders_current >= t.min_current_orders
+        AND o.absolute_gmv_growth > 0
+        AND o.gmv_share_change_pp > 0
+    ) AS opportunity_eligible
+FROM category_state_opportunity o
+CROSS JOIN opportunity_thresholds t;
 
-CREATE OR REPLACE TEMP VIEW candidate_category_states AS
 SELECT
     category,
-    customer_state
-FROM (
-    SELECT
-        product_category_name_english AS category,
-        customer_state,
-        SUM(merchandise_value) AS merchandise_gmv,
+    customer_state,
+    ROUND(gmv_current, 2) AS gmv_current,
+    orders_current,
+    ROUND(absolute_gmv_growth, 2) AS absolute_gmv_growth,
+    ROUND(gmv_growth_pct, 2) AS gmv_growth_pct,
+    ROUND(gmv_share_change_pp, 4) AS gmv_share_change_pp,
+    ROUND(min_current_gmv, 2) AS min_current_gmv,
+    opportunity_eligible
+FROM opportunity_screen
+ORDER BY opportunity_eligible DESC, gmv_current DESC;
 
-        ROW_NUMBER() OVER (
-            PARTITION BY product_category_name_english
-            ORDER BY SUM(merchandise_value) DESC
-        ) AS state_rank
-
-    FROM item_base
-
-    WHERE product_category_name_english IN (
-        'health_beauty',
-        'watches_gifts',
-        'housewares',
-        'auto',
-        'baby'
-    )
-
-    GROUP BY
-        product_category_name_english,
-        customer_state
+COPY (
+    SELECT *
+    FROM opportunity_screen
+    WHERE opportunity_eligible
 )
-WHERE state_rank <= 5;
-
-
--- ============================================================
--- 2.2 Comparable-Period State Metrics
--- ============================================================
-
-CREATE OR REPLACE TEMP VIEW category_state_growth AS
-SELECT
-    i.product_category_name_english AS category,
-    i.customer_state,
-
-    ROUND(
-        SUM(i.merchandise_value) FILTER (
-            WHERE i.order_purchase_timestamp >= TIMESTAMP '2017-02-01'
-              AND i.order_purchase_timestamp <  TIMESTAMP '2017-09-01'
-        ),
-        2
-    ) AS gmv_2017_feb_aug,
-
-    ROUND(
-        SUM(i.merchandise_value) FILTER (
-            WHERE i.order_purchase_timestamp >= TIMESTAMP '2018-02-01'
-              AND i.order_purchase_timestamp <  TIMESTAMP '2018-09-01'
-        ),
-        2
-    ) AS gmv_2018_feb_aug,
-
-    COUNT(DISTINCT i.order_id) FILTER (
-        WHERE i.order_purchase_timestamp >= TIMESTAMP '2017-02-01'
-          AND i.order_purchase_timestamp <  TIMESTAMP '2017-09-01'
-    ) AS orders_2017_feb_aug,
-
-    COUNT(DISTINCT i.order_id) FILTER (
-        WHERE i.order_purchase_timestamp >= TIMESTAMP '2018-02-01'
-          AND i.order_purchase_timestamp <  TIMESTAMP '2018-09-01'
-    ) AS orders_2018_feb_aug
-
-FROM item_base i
-
-JOIN candidate_category_states c
-    ON i.product_category_name_english = c.category
-   AND i.customer_state = c.customer_state
-
-GROUP BY
-    i.product_category_name_english,
-    i.customer_state;
-
-
--- ============================================================
--- 2.3 State Scale x Growth
--- ============================================================
-
-SELECT
-    category,
-    customer_state,
-
-    gmv_2018_feb_aug,
-
-    ROUND(
-        gmv_2018_feb_aug - gmv_2017_feb_aug,
-        2
-    ) AS absolute_gmv_growth,
-
-    ROUND(
-        100.0
-        * (gmv_2018_feb_aug - gmv_2017_feb_aug)
-        / NULLIF(gmv_2017_feb_aug, 0),
-        2
-    ) AS gmv_growth_pct,
-
-    orders_2018_feb_aug,
-
-    ROUND(
-        100.0
-        * (orders_2018_feb_aug - orders_2017_feb_aug)
-        / NULLIF(orders_2017_feb_aug, 0),
-        2
-    ) AS order_growth_pct
-
-FROM category_state_growth
-
-WHERE gmv_2017_feb_aug IS NOT NULL
-  AND gmv_2018_feb_aug IS NOT NULL
-
-ORDER BY
-    category,
-    gmv_2018_feb_aug DESC;
-
-
--- ============================================================
--- 2.4 Regional Investment Screening
--- ============================================================
-
-SELECT
-    category,
-    customer_state,
-    gmv_2018_feb_aug,
-    absolute_gmv_growth,
-    gmv_growth_pct
-FROM (
-    SELECT
-        category,
-        customer_state,
-
-        gmv_2018_feb_aug,
-
-        ROUND(
-            gmv_2018_feb_aug - gmv_2017_feb_aug,
-            2
-        ) AS absolute_gmv_growth,
-
-        ROUND(
-            100.0
-            * (gmv_2018_feb_aug - gmv_2017_feb_aug)
-            / NULLIF(gmv_2017_feb_aug, 0),
-            2
-        ) AS gmv_growth_pct
-
-    FROM category_state_growth
-)
-ORDER BY
-    category,
-    gmv_2018_feb_aug DESC;
-
-
--- ============================================================
--- 2.5 Health & Beauty Regional Screening
--- ============================================================
-
-SELECT
-    category,
-    customer_state,
-    gmv_2018_feb_aug,
-
-    ROUND(
-        gmv_2018_feb_aug - gmv_2017_feb_aug,
-        2
-    ) AS absolute_gmv_growth,
-
-    ROUND(
-        100.0
-        * (gmv_2018_feb_aug - gmv_2017_feb_aug)
-        / NULLIF(gmv_2017_feb_aug, 0),
-        2
-    ) AS gmv_growth_pct
-
-FROM category_state_growth
-
-WHERE category = 'health_beauty'
-
-ORDER BY gmv_2018_feb_aug DESC;
+TO 'data/processed/opportunity_candidates.parquet'
+(FORMAT PARQUET);

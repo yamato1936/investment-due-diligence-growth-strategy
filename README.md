@@ -1,42 +1,40 @@
-# Investment Due Diligence & Growth Strategy
+# 投資デューデリジェンスと成長戦略
 
-> End-to-end investment analysis of the Brazilian e-commerce marketplace represented by the Olist public dataset — from raw-data audit to segment screening, downside-risk analysis, and resource-allocation recommendation.
+> Olist公開データを用いて、データ監査から市場・カテゴリ・地域分析、リスク評価、資源配分、最終投資判断までを一貫して行った投資デューデリジェンス分析です。
 
----
+## 最終判断
 
-## Executive Decision
+# WAIT — 財務ユニットエコノミクスの検証待ち
 
-# WAIT — Pending Financial Unit-Economics Validation
+商業面・オペレーション面では**選択的な投資を支持する結果**が得られました。一方、公開データには take rate、粗利、CAC、追加投資額など、投資リターンを検証するために必要な財務情報が含まれていません。
 
-The commercial and operational evidence supports **selective investment**, but the available public dataset does not contain the financial variables required to establish whether incremental capital would generate an acceptable return.
+したがって、本分析の結論は以下です。
 
-The analysis therefore reaches two separate conclusions:
+- **Commercial DD：GO** — 魅力的なカテゴリ × 地域の投資候補を特定
+- **Financial DD：未完了** — ROI / IRR を識別するためのデータが不足
+- **最終判断：WAIT** — 財務ユニットエコノミクスの確認後に投資実行を判断
 
-* **Commercial DD: GO** — attractive category × region opportunities exist.
-* **Financial DD: INCOMPLETE** — ROI / IRR cannot be identified from the available data.
-* **Final investment decision: WAIT** until unit economics are validated.
+Financial DDを通過した場合の**相対的な資源配分優先度**は以下です。
 
-If financial due diligence confirms acceptable economics, the recommended **relative resource-allocation priority** is:
+![推奨資源配分](figures/04_recommended_allocation.svg)
 
-![Recommended allocation](figures/04_recommended_allocation.png)
+| 優先度 | セグメント | 相対配分 |
+|---|---|---:|
+| コア | **health_beauty × SP** | **40.78%** |
+| コア | **housewares × SP** | **25.75%** |
+| 高成長・要監視 | **watches_gifts × SP** | **22.12%** |
+| 拡張候補 | **health_beauty × MG** | **11.35%** |
+| 除外 | watches_gifts × RJ | **0%** |
 
-| Priority           | Segment                | Relative Allocation |
-| ------------------ | ---------------------- | ------------------: |
-| Core               | **health_beauty × SP** |          **40.78%** |
-| Core               | **housewares × SP**    |          **25.75%** |
-| Higher-risk growth | **watches_gifts × SP** |          **22.12%** |
-| Expansion          | **health_beauty × MG** |          **11.35%** |
-| Excluded           | watches_gifts × RJ     |              **0%** |
-
-These percentages are **not expected financial returns or literal optimal capital weights**. They represent relative allocation priority based on observed demand growth, operational quality, and seller diversification.
+> この配分率は期待収益率や最適資本配分ではありません。観測された需要成長、オペレーション品質、seller分散度に基づく**相対的な資源配分優先度**です。
 
 ---
 
-# Business Question
+## ビジネス上の問い
 
-> **Should we invest in this marketplace opportunity? If so, which product categories and regions should receive priority, and what conditions would invalidate the investment thesis?**
+> **このマーケットプレイスへ投資すべきか。投資候補が存在するなら、どのカテゴリ・地域を優先し、どの条件で投資仮説を撤回すべきか。**
 
-The project follows the decision process:
+分析は次の順で設計しました。
 
 ```text
 Business Problem
@@ -52,827 +50,385 @@ Business Problem
 → Decision
 ```
 
-The objective is not to demonstrate SQL or Python in isolation.
-
-The objective is to convert imperfect transactional data into a defensible investment recommendation while clearly separating:
-
-* what the data supports,
-* what remains uncertain,
-* and what additional evidence is required before capital is committed.
+目的はSQLやPythonそのものを見せることではなく、**不完全な取引データから、どこまで意思決定でき、どこから先は追加データが必要かを切り分けること**です。
 
 ---
 
-# Key Findings
+# 主な分析結果
 
-## 1. Marketplace growth accelerated through 2017, then plateaued in 2018
+## 1. マーケットプレイスGMVは2017年に拡大し、2018年に横ばいへ
 
-![Monthly marketplace GMV](figures/01_monthly_gmv.png)
+![月次GMV推移](figures/01_monthly_gmv.svg)
 
-Monthly merchandise GMV increased from approximately **R$0.25M in February 2017** to roughly **R$0.85M–R$1.0M per month during much of 2018**.
+商品GMVは2017年2月の約 **R$0.25M** から急拡大し、2018年の多くの月では約 **R$0.85M〜R$1.0M** のレンジで推移しました。
 
-However, the earlier acceleration did not continue through 2018.
+一方、2018年には2017年のような加速的な成長は継続していません。AOVにも明確な上昇トレンドがなく、過去の成長は主に**active customersと注文数の増加**によって説明されます。
 
-Orders, active customers, and GMV all showed signs of flattening, while AOV remained broadly stable.
+### 投資上の含意
 
-This suggests that marketplace growth was driven primarily by:
-
-* customer acquisition,
-* order volume,
-
-rather than sustained increases in merchandise value per order.
-
-### Implication
-
-Historical marketplace growth should **not** be mechanically extrapolated into future investment returns.
+2017年の成長率を将来へそのまま外挿するのは危険です。マーケット全体へ均等に資源配分するより、成長の質が高いセグメントを選別する必要があります。
 
 ---
 
-## 2. Growth quality is weak at the customer level
+## 2. 顧客成長の質は弱く、新規獲得依存が大きい
 
-Monthly orders and active customers moved almost one-for-one.
+月次ordersとactive customersはほぼ1対1で増減しており、1 active customerあたりのordersは概ね **1.0** 付近です。
 
-Orders per active customer remained close to:
+2018年時点でもreturning customersは月次active customersの約 **2〜3%** にとどまり、完全な90日観測期間を持つcohortの加重平均90-day repeat rateは約 **2.34%** でした。
 
-[
-1.0
-]
-
-Returning customers represented only around **2–3% of monthly active customers by 2018**.
-
-A cohort-based analysis also found a weighted 90-day repeat rate of approximately:
-
-[
-Repeat_{90d} \approx 2.34%
-]
-
-where:
-
-[
+$$
 Repeat_{90d}
-============
+=
+\frac{\text{90日以内に2回目の購入を行った顧客数}}
+{\text{90日間を完全に観測できる顧客数}}
+$$
 
-\frac{\text{Customers with a second purchase within 90 days}}
-{\text{Customers with a complete 90-day follow-up window}}
-]
+### 投資上の含意
 
-### Implication
+新規顧客獲得が鈍化した場合、短期repeatだけではこれまでのGMV成長を補えない可能性があります。
 
-Marketplace growth appears highly dependent on continuous new-customer acquisition.
+### 制約
 
-If acquisition slows, repeat purchasing may be insufficient to sustain historical order and GMV growth.
-
-### Limitation
-
-`First observed purchase` is defined using the available dataset.
-
-It is not necessarily the customer's true lifetime first transaction because the observation period is left-censored.
+ここでの「初回購入」はdataset上の**first observed purchase**です。観測開始前の購買履歴はないため、顧客の真の生涯初回購入とは限りません。
 
 ---
 
-## 3. Growth is highly heterogeneous across product categories
+## 3. 成長機会はカテゴリ間で大きく異なる
 
-![Category opportunity matrix](figures/02_category_opportunity.png)
+![カテゴリ機会分析](figures/02_category_opportunity.svg)
 
-Category screening combined:
+カテゴリ評価では、成長率だけでなく以下を組み合わせました。
 
-* current economic scale,
-* comparable-period GMV growth,
-* absolute GMV growth,
-* market-share movement.
+- 現在のGMV規模
+- 同一暦月で比較したGMV成長率
+- 絶対GMV成長額
+- 市場シェアの変化
 
-Comparable periods were:
+比較期間はseasonalityの影響を抑えるため、同一暦月に揃えています。
 
 ```text
 Prior:   2017-02-01 <= purchase < 2017-09-01
 Current: 2018-02-01 <= purchase < 2018-09-01
 ```
 
-Using matching calendar months reduces seasonal distortion.
+市場全体の同期間GMV成長率は約 **115%** です。
 
-Marketplace GMV grew approximately **115%** over the comparable period.
+大規模カテゴリのうち、`health_beauty`、`watches_gifts`、`housewares` などが有力候補になりました。一方、`construction_tools_construction` は約3,000%超の高成長ですがprior-periodの規模が小さいため、**低ベースの外れ値**として扱っています。
 
-Several large categories outperformed that benchmark and gained share, including:
+### 投資上の含意
 
-* `health_beauty`
-* `watches_gifts`
-* `housewares`
-* `auto`
-* `baby`
-
-The chart also retains `construction_tools_construction`, which showed an extremely high percentage growth rate from a very small prior base.
-
-This is intentionally labeled as a **low-base outlier**.
-
-### Implication
-
-Growth rate alone is not sufficient for investment screening.
-
-A segment must combine:
-
-[
-Scale + Absolute\ Growth + Relative\ Growth
-]
-
-to become economically meaningful.
+高い成長率だけで候補を決めず、**規模 × 絶対成長 × 相対成長**を同時に見る必要があります。
 
 ---
 
-# Regional Opportunity
+# 地域別の機会
 
-The strongest categories were decomposed by customer state.
+有力カテゴリをcustomer_state別に分解すると、São Paulo（`SP`）が最大市場で、Minas Gerais（`MG`）などに選択的な拡張余地が確認できました。
 
-São Paulo (`SP`) was consistently the largest market, with meaningful secondary opportunities in states such as Minas Gerais (`MG`) and Rio de Janeiro (`RJ`).
+最有力セグメントは **health_beauty × SP** です。
 
-The strongest observed segment was:
+| 指標 | 結果 |
+|---|---:|
+| 2018年2–8月 商品GMV | **R$275,923** |
+| 同期間比較の絶対GMV成長額 | **+R$205,740** |
+| GMV成長率 | **+293%** |
+| 遅配率 | **7.10%** |
+| 市場遅配率 | **8.17%** |
+| 平均レビュー | **4.28** |
+| 低評価率（2以下） | **10.34%** |
+| 市場低評価率 | **14.62%** |
+| seller数 | **303** |
+| Top-3 seller GMV share | **21.78%** |
 
-## health_beauty × SP
-
-| Metric                                |         Result |
-| ------------------------------------- | -------------: |
-| Feb–Aug 2018 Merchandise GMV          |  **R$275,923** |
-| Absolute comparable-period GMV growth | **+R$205,740** |
-| GMV growth                            |      **+293%** |
-| Late-delivery rate                    |      **7.10%** |
-| Market late-delivery rate             |      **8.17%** |
-| Average review score                  |       **4.28** |
-| Low-review rate                       |     **10.34%** |
-| Market low-review rate                |     **14.62%** |
-| Seller count                          |        **303** |
-| Top-3 seller GMV share                |     **21.78%** |
-
-This segment combines:
-
-* meaningful current scale,
-* strong absolute growth,
-* strong relative growth,
-* above-market operational quality,
-* relatively diversified seller supply.
-
-It is therefore the highest-priority commercial opportunity identified in the dataset.
+このセグメントでは、**規模・成長・顧客体験・seller分散**の4条件が同時に成立しています。
 
 ---
 
-# Operational Risk Screening
+# オペレーショナルリスク
 
-High growth alone was not sufficient to qualify a segment for allocation.
+高成長であっても、delivery / reviewの品質が悪ければ配分対象から除外します。
 
-![Candidate risk comparison](figures/03_candidate_risk.png)
+![候補セグメントのリスク比較](figures/03_candidate_risk.svg)
 
-Candidate segments were benchmarked against the full marketplace using two metrics.
+市場ベンチマークは以下です。
 
-## Late-Delivery Rate
-
-[
+$$
 LateRate
-========
+=
+\frac{\text{遅配注文数}}
+{\text{遅配判定可能な注文数}}
+$$
 
-\frac{\text{Late delivered orders}}
-{\text{Late-delivery-eligible orders}}
-]
+市場遅配率：**8.17%**
 
-Marketplace benchmark:
-
-[
-8.17%
-]
-
-## Low-Review Rate
-
-[
+$$
 LowReviewRate
-=============
+=
+\frac{\text{review scoreが2以下の注文数}}
+{\text{review判定可能な注文数}}
+$$
 
-\frac{\text{Orders with review score } \le 2}
-{\text{Review-eligible orders}}
-]
+市場低評価率：**14.62%**
 
-Marketplace benchmark:
+大半の候補は両指標で市場平均を上回る品質を示しましたが、`watches_gifts × RJ` は明確な例外でした。
 
-[
-14.62%
-]
+| 指標 | watches_gifts × RJ | 市場 |
+|---|---:|---:|
+| 遅配率 | **14.65%** | 8.17% |
+| 低評価率 | **22.42%** | 14.62% |
+| 平均レビュー | **3.80** | — |
 
-Most shortlisted segments outperformed both benchmarks.
-
-The major exception was:
-
-## watches_gifts × RJ
-
-| Metric               |    Segment | Market |
-| -------------------- | ---------: | -----: |
-| Late-delivery rate   | **14.65%** |  8.17% |
-| Low-review rate      | **22.42%** | 14.62% |
-| Average review score |   **3.80** |      — |
-
-Despite strong demand growth, the segment was excluded because both major operational-risk measures materially underperformed the marketplace.
-
-### Implication
-
-The screening process deliberately rejects the rule:
-
-> **Highest growth = best investment**
-
-and instead evaluates the quality and sustainability of that growth.
+そのため、GMV成長が強くても現時点ではallocation対象から除外しています。
 
 ---
 
-# Seller Concentration Risk
+# Seller集中リスク
 
-A fast-growing segment may still be fragile if GMV is dependent on only a few sellers.
+成長セグメントでも、GMVが少数sellerに依存している場合は供給側の脆弱性があります。
 
-Top-3 seller concentration in the current comparable period:
+| セグメント | seller数 | Top-3 seller GMV share |
+|---|---:|---:|
+| health_beauty × SP | 303 | **21.78%** |
+| housewares × SP | 275 | **11.93%** |
+| health_beauty × MG | 155 | **35.07%** |
+| watches_gifts × SP | 55 | **44.66%** |
+| watches_gifts × RJ | 42 | **41.87%** |
 
-| Segment            | Sellers | Top-3 Seller GMV Share |
-| ------------------ | ------: | ---------------------: |
-| health_beauty × SP |     303 |             **21.78%** |
-| housewares × SP    |     275 |             **11.93%** |
-| health_beauty × MG |     155 |             **35.07%** |
-| watches_gifts × SP |      55 |             **44.66%** |
-| watches_gifts × RJ |      42 |             **41.87%** |
-
-`watches_gifts × SP` has attractive demand growth but materially higher seller concentration than the two strongest SP alternatives.
-
-This concentration reduces its allocation priority.
+`watches_gifts × SP` は需要面では魅力的ですが、Top-3 seller shareが **44.66%** と高く、最終配分では減点しています。
 
 ---
 
-# Allocation Methodology
+# 配分ロジック
 
-The allocation model intentionally favors transparency over unnecessary model complexity.
-
-The output should be interpreted as **relative resource-allocation priority**, not as an optimized financial portfolio.
-
----
+配分モデルは、説明可能性を優先してシンプルなルールで設計しています。
 
 ## Step 1 — Eligibility Gate
 
-A segment must have:
+絶対GMV成長額が正であることを前提とし、以下の2つが**同時に**市場より悪い場合は除外します。
 
-[
-\Delta GMV_s > 0
-]
-
-A segment is excluded when both customer-experience risks are worse than the marketplace:
-
-[
+$$
 LateRate_s > LateRate_{market}
-]
+$$
 
-and:
+かつ
 
-[
+$$
 LowReviewRate_s > LowReviewRate_{market}
-]
+$$
 
-This rule excluded `watches_gifts × RJ`.
-
----
+このルールにより `watches_gifts × RJ` を除外しました。
 
 ## Step 2 — Opportunity Score
 
-For each eligible segment:
-
-[
+$$
 BaseScore_s
-===========
+=
+\sqrt{GMV^{current}_s \times \Delta GMV_s}
+$$
 
-\sqrt{
-GMV^{current}_s
-\times
-\Delta GMV_s
-}
-]
+ここで、`GMV current` は2018年2–8月の商品GMV、`ΔGMV` は2017年同期間からの絶対GMV成長額です。
 
-where:
-
-* (GMV^{current}_s) = Feb–Aug 2018 merchandise GMV
-* (\Delta GMV_s) = comparable-period absolute GMV growth
-
-The geometric mean prevents either scale or growth from completely dominating the score.
-
-Absolute growth is used instead of percentage growth alone to reduce low-base distortion.
-
----
+成長率ではなく絶対成長額を使うことで、低ベース効果を抑えています。
 
 ## Step 3 — Seller Concentration Adjustment
 
-[
+$$
 Diversification_s
-=================
+=
+1 - Top3SellerShare_s
+$$
 
-1 -
-Top3SellerShare_s
-]
-
-Then:
-
-[
+$$
 AdjustedScore_s
-===============
-
-BaseScore_s
-\times
-Diversification_s
-]
-
-A segment with more concentrated seller supply therefore receives a lower priority.
-
----
+=
+BaseScore_s \times Diversification_s
+$$
 
 ## Step 4 — Relative Allocation
 
-[
+$$
 Allocation_s
-============
-
+=
 \frac{AdjustedScore_s}
 {\sum_j AdjustedScore_j}
-]
+$$
 
-Result:
+最終結果は次のとおりです。
 
-| Segment            | Allocation |
-| ------------------ | ---------: |
+| セグメント | 配分 |
+|---|---:|
 | health_beauty × SP | **40.78%** |
-| housewares × SP    | **25.75%** |
+| housewares × SP | **25.75%** |
 | watches_gifts × SP | **22.12%** |
 | health_beauty × MG | **11.35%** |
-| watches_gifts × RJ |     **0%** |
-
-![Recommended allocation](figures/04_recommended_allocation.png)
+| watches_gifts × RJ | **0%** |
 
 ---
 
-# Sensitivity Analysis
+# 感度分析
 
-The seller-concentration adjustment was removed to test how strongly the result depends on this modeling assumption.
+seller concentration adjustmentを外して順位の安定性を確認しました。
 
-| Segment            | Without Concentration Adjustment | With Adjustment |
-| ------------------ | -------------------------------: | --------------: |
-| health_beauty × SP |                           37.55% |      **40.78%** |
-| housewares × SP    |                           21.06% |      **25.75%** |
-| watches_gifts × SP |                           28.79% |      **22.12%** |
-| health_beauty × MG |                           12.59% |      **11.35%** |
+| セグメント | 集中度調整なし | 集中度調整あり |
+|---|---:|---:|
+| health_beauty × SP | 37.55% | **40.78%** |
+| housewares × SP | 21.06% | **25.75%** |
+| watches_gifts × SP | 28.79% | **22.12%** |
+| health_beauty × MG | 12.59% | **11.35%** |
 
-`health_beauty × SP` remains the highest-priority segment under both specifications.
+`health_beauty × SP` はどちらの仕様でも1位を維持しています。一方、`housewares × SP` と `watches_gifts × SP` の順位は集中度の扱いに影響されます。
 
-However, `housewares × SP` and `watches_gifts × SP` switch relative positions after the concentration penalty is introduced.
-
-### Interpretation
-
-The first-ranked opportunity is relatively robust.
-
-The exact allocation between the second- and third-ranked segments is more assumption-sensitive.
-
-For this reason, allocation percentages should be treated as decision-support outputs rather than precise optimal weights.
+したがって、約40%というトップ推奨は比較的頑健ですが、2位・3位の厳密な割合は**仮定に対して感度がある**と解釈します。
 
 ---
 
-# Why ROI / IRR Is Not Estimated
+# ROI / IRRを算出しない理由
 
-A financial investment return requires both the benefit generated by incremental capital and the capital required to generate it.
+投資ROIを評価するには、少なくとも投資によって生じる**増分利益**と**投資額**が必要です。
 
-Conceptually:
-
-[
+$$
 ROI
-===
+=
+\frac{Incremental\ Profit - Investment}
+{Investment}
+$$
 
-\frac{
-Incremental\ Profit - Investment
-}{
-Investment
-}
-]
+Olist公開データでは以下が観測できません。
 
-The Olist public dataset contains transaction and operational information, but does not provide several variables required to estimate this quantity.
+- marketplace take rate
+- net revenue
+- gross / contribution margin
+- CAC
+- marketing spend
+- seller acquisition cost
+- fulfillment / servicing cost
+- incremental investment requirement
+- cash flow
 
-Missing financial inputs include:
+また、次の因果関係も識別できません。
 
-* marketplace take rate
-* net revenue
-* gross margin
-* contribution margin
-* customer acquisition cost
-* marketing spend
-* seller acquisition cost
-* fulfillment / servicing cost
-* incremental capital required
-* cash flow
+$$
+Investment \rightarrow Incremental\ GMV
+$$
 
-The dataset also does not identify the causal effect:
+したがって、
 
-[
-Investment
-\rightarrow
-Incremental\ GMV
-]
-
-Therefore:
-
-[
+$$
 GMV\ Growth \neq ROI
-]
+$$
 
-and:
-
-[
-GMV\ Growth \neq Expected\ Financial\ Return
-]
-
-Inventing an ROI from the available data would create false precision.
+です。GMV成長をROIへ読み替えると、根拠のない精度を作ることになります。
 
 ---
 
-# What Would Convert WAIT Into INVEST?
+# WAITからINVESTへ移行する条件
 
-The commercial thesis already identifies where incremental resources should be concentrated.
+Commercial DDでは投資候補を特定できています。残る論点はFinancial DDです。
 
-The remaining requirement is financial validation.
+投資承認前に、少なくとも以下を追加検証する必要があります。
 
-Before approving investment, additional data should establish:
+1. セグメント別take rate
+2. contribution margin
+3. CAC
+4. customer contribution LTV
+5. seller acquisition economics
+6. incremental marketing / operating investment
+7. 投資によるincremental GMVの期待値
 
-1. segment-level take rate,
-2. contribution margin,
-3. CAC,
-4. customer contribution LTV,
-5. seller-acquisition economics,
-6. incremental marketing / operating investment,
-7. expected incremental GMV attributable to that investment.
-
-The decision can move from:
-
-```text
-WAIT
-```
-
-to:
-
-```text
-INVEST
-```
-
-if the priority segments demonstrate acceptable unit economics and the expected incremental return exceeds the investment hurdle rate.
+これらによりunit economicsと投資ハードルレートを満たすことを確認できれば、`WAIT` から `INVEST` へ移行します。
 
 ---
 
-# Downside Risks
+# 主なDownside Risk
 
-## 1. Acquisition Dependence
-
-Short-term repeat purchasing is weak.
-
-If new-customer acquisition slows materially, marketplace growth may decline.
-
----
-
-## 2. Marketplace Growth Deceleration
-
-2017 growth should not be extrapolated mechanically because marketplace GMV flattened during 2018.
+- **新規顧客獲得依存**：repeatが弱く、acquisition slowdownがGMVへ直結する可能性
+- **市場成長の鈍化**：2018年にmarket-wide growthが横ばい化
+- **seller集中**：特に `watches_gifts × SP` はTop-3 shareが44.66%
+- **オペレーション品質**：`watches_gifts × RJ` の遅配・低評価が市場を大幅に下回る
+- **財務可視性の不足**：commercial attractivenessとfinancial returnは別物
 
 ---
 
-## 3. Seller Concentration
+# 撤退・再評価トリガー
 
-Some high-growth opportunities depend heavily on a small number of sellers.
-
-`watches_gifts × SP`, for example, has a Top-3 seller GMV share of **44.66%**.
-
----
-
-## 4. Operational Quality
-
-High demand growth can coexist with poor customer outcomes.
-
-`watches_gifts × RJ` demonstrates this failure mode.
+1. **成長仮説の崩れ**：候補segmentの同期間比較absolute GMV growthが0以下
+2. **相対ポジション悪化**：対象categoryが市場平均を継続的に下回り、GMV shareも低下
+3. **品質悪化**：遅配率と低評価率が同時に市場平均を上回る
+4. **seller集中の上昇**：Top-3 shareが約40%を超え、配分結果が集中度仮定に大きく依存
+5. **acquisition engineの弱体化**：active customersとGMVが持続的に減少し、repeatで補えない
 
 ---
 
-## 5. Financial Observability
+# データと分析設計
 
-Commercial attractiveness does not guarantee attractive financial return.
+## 使用データ
 
-The public dataset does not expose the company's underlying unit economics.
+Brazilian E-Commerce Public Dataset by Olistの主要9テーブルを使用しています。
 
----
+- `orders`
+- `customers`
+- `order_items`
+- `products`
+- `product_category_name_translation`
+- `sellers`
+- `order_payments`
+- `order_reviews`
+- `geolocation`
 
-# Withdrawal Triggers
-
-If investment is approved after financial DD, the following conditions should trigger reassessment.
-
-## 1. Growth Thesis Break
-
-Pause incremental allocation when:
-
-[
-\Delta GMV_s \le 0
-]
-
-over a comparable measurement period.
-
----
-
-## 2. Relative Market Position Deteriorates
-
-Reduce priority if the target category consistently:
-
-* loses GMV share,
-* and grows below the marketplace benchmark.
-
----
-
-## 3. Operational Quality Falls Below Market
-
-A segment becomes ineligible if both:
-
-[
-LateRate_s > LateRate_{market}
-]
-
-and:
-
-[
-LowReviewRate_s > LowReviewRate_{market}
-]
-
----
-
-## 4. Seller Concentration Becomes Material
-
-Reassess allocation if Top-3 seller concentration rises above approximately **40%** and materially alters the allocation recommendation.
-
----
-
-## 5. Acquisition Engine Weakens
-
-Reopen the market-level thesis if:
-
-* active customers decline persistently,
-* GMV declines,
-* and repeat purchasing remains insufficient to compensate.
-
----
-
-# Data
-
-This project uses the **Brazilian E-Commerce Public Dataset by Olist**.
-
-Primary tables:
-
-* `orders`
-* `customers`
-* `order_items`
-* `products`
-* `product_category_name_translation`
-* `sellers`
-* `order_payments`
-* `order_reviews`
-* `geolocation`
-
-The primary analysis window is:
+## 分析対象期間
 
 ```text
 2017-02-01 <= order_purchase_timestamp < 2018-09-01
 ```
 
-This contains:
+**19か月、98,292 orders** をprimary analysis windowとしています。
 
-**98,292 orders across 19 months.**
+## 主要指標
 
-Sparse observations before and after this interval were excluded after temporal and cross-table coverage validation.
+商品GMV：
 
----
+$$
+Merchandise\ GMV = \sum order\_items.price
+$$
 
-# Metric Definitions
+AOV：
 
-## Merchandise GMV
+$$
+AOV = \frac{Merchandise\ GMV}{GMV\ Orders}
+$$
 
-[
-Merchandise\ GMV
-================
+`payment_value` は顧客支払額として扱い、GMVやrevenueとは呼びません。
 
-\sum order_items.price
-]
+## 分析粒度
 
-Freight is treated separately:
+`order_base`：1 row = 1 order。orders、customers、repeat、payment、delivery、reviewに使用。
 
-[
-Freight\ Charged
-================
+`item_base`：1 row = 1 order item。GMV、category、seller、freight、category × geographyに使用。
 
-\sum order_items.freight_value
-]
+この分離により、1:N table同士のJOINによる重複集計を防いでいます。
 
-`payment_value` is not called GMV or revenue.
+詳細は以下を参照してください。
 
----
-
-## Orders
-
-[
-Orders
-======
-
-COUNT(DISTINCT\ order_id)
-]
+- [分析方法論](docs/analysis_methodology.md)
+- [データ辞書](docs/data_dictionary.md)
+- [投資判断メモ](docs/investment_decision.md)
 
 ---
 
-## Active Customers
-
-[
-ActiveCustomers
-===============
-
-COUNT(DISTINCT\ customer_unique_id)
-]
-
-`customer_unique_id` is used for repeat / retention analysis because:
-
-```text
-customer_unique_id (1) → (N) customer_id
-```
-
----
-
-## AOV
-
-[
-AOV
-===
-
-\frac{Merchandise\ GMV}{GMV\ Orders}
-]
-
-The numerator and denominator are defined over the same order population.
-
----
-
-# Analytical Design
-
-Two canonical analytical bases are used because the required metrics exist at different natural grains.
-
----
-
-## `order_base`
-
-**Grain**
-
-```text
-1 row = 1 order
-```
-
-**Unique key**
-
-```text
-order_id
-```
-
-Used for:
-
-* order volume
-* active customers
-* retention / repeat
-* payments
-* delivery
-* reviews
-* customer geography
-
----
-
-## `item_base`
-
-**Grain**
-
-```text
-1 row = 1 order item
-```
-
-**Unique key**
-
-```text
-(order_id, order_item_id)
-```
-
-Used for:
-
-* merchandise GMV
-* freight
-* products
-* categories
-* sellers
-* category × region analysis
-
-Separating the bases prevents order-level metrics from being accidentally duplicated across multiple item rows.
-
----
-
-# Join Safety
-
-Join cardinality was explicitly validated before analysis.
-
-Important rules:
-
-* `order_items` and `order_payments` are never raw-joined as 1:N × 1:N.
-* payments are aggregated to order grain before joining.
-* reviews are canonicalized to one review per order.
-* raw geolocation is not directly joined by ZIP prefix because ZIP is not unique.
-* customer and seller city/state fields are used as canonical categorical geography.
-* metric-specific anomalies are handled through eligibility rules rather than global row deletion.
-
----
-
-# Review Canonicalization
-
-Orders may have multiple reviews.
-
-For order-level review analysis, the latest review is selected using:
-
-```sql
-ORDER BY
-    review_answer_timestamp DESC,
-    review_creation_date DESC,
-    review_id DESC
-```
-
-and:
-
-```sql
-ROW_NUMBER() = 1
-```
-
-Multiple review scores are not averaged because an average can create an artificial score that no customer actually submitted.
-
----
-
-# Data Quality Decisions
-
-The completed audit validated:
-
-* grain
-* unique/composite keys
-* missingness
-* timestamp consistency
-* join coverage
-* row multiplication risk
-* monetary integrity
-* category translation
-* review multiplicity
-* geolocation multiplicity
-* cross-table temporal coverage
-
-Anomalous rows are not globally removed.
-
-Instead:
-
-```text
-metric → eligibility definition → denominator
-```
-
-is defined separately for each KPI.
-
-Detailed decisions are documented in:
-
-```text
-docs/analysis_methodology.md
-docs/data_dictionary.md
-docs/investment_decision.md
-```
-
----
-
-# Repository Structure
+# リポジトリ構成
 
 ```text
 .
-├── LICENSE
 ├── README.md
-│
-├── data/
-│   ├── external/
-│   ├── interim/
-│   ├── processed/
-│   │   ├── allocation_recommendation.parquet
-│   │   ├── item_base.parquet
-│   │   └── order_base.parquet
-│   └── raw/
-│       └── Olist CSV files
-│
 ├── docs/
 │   ├── analysis_methodology.md
 │   ├── data_dictionary.md
 │   └── investment_decision.md
-│
 ├── figures/
-│   ├── 01_monthly_gmv.png
-│   ├── 02_category_opportunity.png
-│   ├── 03_candidate_risk.png
-│   └── 04_recommended_allocation.png
-│
-├── notebooks/
-│
-├── reports/
-│
+│   ├── 01_monthly_gmv.svg
+│   ├── 02_category_opportunity.svg
+│   ├── 03_candidate_risk.svg
+│   └── 04_recommended_allocation.svg
 ├── sql/
 │   ├── 00_data_audit.sql
 │   ├── 01_analysis_base.sql
@@ -881,56 +437,36 @@ docs/investment_decision.md
 │   ├── 04_diagnostic_region.sql
 │   ├── 05_diagnostic_risk.sql
 │   └── 06_allocation.sql
-│
 ├── src/
-│   ├── __init__.py
-│   ├── analysis/
-│   ├── config.py
-│   ├── data/
-│   ├── make_figures.py
 │   ├── run_sql.py
-│   └── visualization/
-│
-├── tests/
-├── pyproject.toml
-└── requirements.txt
+│   └── make_figures.py
+├── data/
+│   ├── raw/        # ローカルのみ
+│   └── processed/  # ローカル生成物
+├── requirements.txt
+└── pyproject.toml
 ```
-
-Raw and generated data files should remain excluded from version control where appropriate.
-
-The four README figures should be committed so GitHub can render them.
 
 ---
 
-# Reproduction
+# 再現手順
 
-## 1. Clone the repository
+## 1. Clone
 
 ```bash
-git clone <repository-url>
-cd invest
+git clone https://github.com/yamato1936/investment-due-diligence-growth-strategy.git
+cd investment-due-diligence-growth-strategy
 ```
 
----
-
-## 2. Create the Python environment
+## 2. Python環境を作成
 
 ```bash
 python -m venv .venv
 source .venv/bin/activate
-```
-
-Install dependencies:
-
-```bash
 pip install -r requirements.txt
 ```
 
----
-
-## 3. Place the Olist files under `data/raw/`
-
-Expected inputs:
+## 3. Olist CSVを `data/raw/` に配置
 
 ```text
 data/raw/
@@ -945,32 +481,26 @@ data/raw/
 └── product_category_name_translation.csv
 ```
 
----
-
-## 4. Run the data audit
+## 4. Data Audit
 
 ```bash
 python src/run_sql.py sql/00_data_audit.sql
 ```
 
----
-
-## 5. Build the analytical bases
+## 5. Analytical Baseを生成
 
 ```bash
 python src/run_sql.py sql/01_analysis_base.sql
 ```
 
-Outputs:
+生成物：
 
 ```text
 data/processed/order_base.parquet
 data/processed/item_base.parquet
 ```
 
----
-
-## 6. Run diagnostic analyses
+## 6. Diagnostic Analysis
 
 ```bash
 python src/run_sql.py sql/02_diagnostic_growth.sql
@@ -979,66 +509,38 @@ python src/run_sql.py sql/04_diagnostic_region.sql
 python src/run_sql.py sql/05_diagnostic_risk.sql
 ```
 
----
-
-## 7. Generate the allocation recommendation
+## 7. Allocationを生成
 
 ```bash
 python src/run_sql.py sql/06_allocation.sql
 ```
 
-Output:
+生成物：
 
 ```text
 data/processed/allocation_recommendation.parquet
 ```
 
----
-
-## 8. Generate the figures
+## 8. Figureを生成
 
 ```bash
 python src/make_figures.py
 ```
 
-Outputs:
-
-```text
-figures/01_monthly_gmv.png
-figures/02_category_opportunity.png
-figures/03_candidate_risk.png
-figures/04_recommended_allocation.png
-```
-
 ---
 
-# Final Recommendation
+# 最終提言
 
-## WAIT — Pending Financial Unit-Economics Validation
+## WAIT — 財務ユニットエコノミクスの検証待ち
 
-The available data does **not** justify a blanket investment across the marketplace.
+市場全体への一律投資は推奨しません。
 
-Marketplace growth slowed during 2018, customer activity remains highly acquisition-dependent, and commercial attractiveness differs materially across categories and regions.
+一方、Commercial DDでは **health_beauty × SP** を最優先とする明確な投資候補を特定できています。Financial DDでunit economicsが投資基準を満たすことを確認できた場合、初期の資源配分は以下を目安とします。
 
-However, the analysis identifies several segments with substantially stronger evidence.
+1. **health_beauty × SP — 約40%**
+2. **housewares × SP — 約25%**
+3. **watches_gifts × SP — 約20%**（seller集中を継続監視）
+4. **health_beauty × MG — 約10〜15%**
+5. **watches_gifts × RJ — 0%**
 
-The highest-priority opportunity is:
-
-# `health_beauty × SP`
-
-If financial DD validates acceptable unit economics, relative resources should initially be concentrated approximately as follows:
-
-1. **health_beauty × SP — ~40%**
-2. **housewares × SP — ~25%**
-3. **watches_gifts × SP — ~20%**, subject to seller-concentration monitoring
-4. **health_beauty × MG — ~10–15%**
-
-`watches_gifts × RJ` should receive **no incremental allocation** until delivery and review performance materially improves.
-
-The final investment decision remains:
-
-> **WAIT until contribution economics, CAC, take rate, incremental investment requirements, and expected financial return are validated.**
-
-The commercial analysis answers **where to invest**.
-
-The remaining financial due diligence must determine **whether the expected return justifies investing at all**.
+本分析は**どこへ投資すべきか**を示しています。残るFinancial DDで、**そもそも期待リターンが投資実行に値するか**を検証する必要があります。

@@ -81,7 +81,7 @@ low_review_rate > market_low_review_rate
 
 最終ポートフォリオでは、リスク除外後に残ったセグメントのうち基準スコア上位5件を採用し、各セグメントのスコア比率に基づいて相対配分へ正規化します。
 
-この配分値はexpected return、ROI、IRRを意味するものではありません。公開Olistデータにはtake rate、margin、CAC、追加投資額などの情報が含まれていないため、**Commercial DDにおける相対的な資源配分の優先度**として解釈します。
+この配分値はexpected return、ROI、IRRを意味するものではありません。公開Olistデータにはtake rate、margin、CAC、追加投資額などの情報が含まれていないため、**商業デューデリジェンスにおける相対的な資源配分の優先度**として解釈します。
 
 ## 6. 標本不確実性
 
@@ -147,4 +147,4 @@ GMVの絶対増加額が正であること、およびGMVシェアの変化が�
 * 投資によるincremental GMVの因果効果は識別できない
 * ROI / IRR / expected profitは識別できない
 
-したがって、最終的な投資判断はFinancial DDが完了するまで `WAIT` とします。
+したがって、最終的な投資判断は財務デューデリジェンスが完了するまで `WAIT` とします。

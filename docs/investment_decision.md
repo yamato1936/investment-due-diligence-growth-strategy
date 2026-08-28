@@ -2,70 +2,69 @@
 
 ## 最終判断
 
-# WAIT — 財務ユニットエコノミクスの検証待ち
+**WAIT — 財務ユニットエコノミクスの検証待ち**
 
-Commercial DDでは選択的な投資を支持する証拠が得られました。一方、Olist公開データにはtake rate、margin、CAC、incremental investment、cash flowがなく、ROI / IRRを識別できません。
+Commercial DDでは、選択的な投資を支持する証拠が得られました。一方、Olist公開データにはtake rate、margin、CAC、追加投資額、cash flowに関する情報がなく、ROI / IRRを算定できません。
 
-したがって、
+したがって、現時点の判断は以下のとおりです。
 
-- **Commercial DD：GO**
-- **Financial DD：未完了**
-- **Final Decision：WAIT**
-
-とします。
+* **Commercial DD：GO**
+* **Financial DD：未完了**
+* **最終判断：WAIT**
 
 ## Financial DD通過時の推奨相対配分
 
-候補は手入力せず、全category × stateへ機械的なopportunity screenとrisk screenを適用し、baseline score上位5を採用します。
+候補を手入力せず、すべての `category × state` に対して機会選定基準とリスク除外基準を機械的に適用し、基準スコア上位5セグメントを採用します。
 
-| 優先度 | Segment | Relative allocation |
-|---|---|---:|
-| 1 | **health_beauty × SP** | **28.71%** |
-| 2 | **bed_bath_table × SP** | **18.39%** |
-| 3 | **sports_leisure × SP** | **18.20%** |
-| 4 | **housewares × SP** | **18.13%** |
-| 5 | **computers_accessories × SP** | **16.58%** |
+| 優先度 | セグメント                          |       相対配分 |
+| --- | ------------------------------ | ---------: |
+| 1   | **health_beauty × SP**         | **28.71%** |
+| 2   | **bed_bath_table × SP**        | **18.39%** |
+| 3   | **sports_leisure × SP**        | **18.20%** |
+| 4   | **housewares × SP**            | **18.13%** |
+| 5   | **computers_accessories × SP** | **16.58%** |
 
-この配分はfinancial return forecastではなく、observed marketplace evidenceに基づくrelative resource-allocation priorityです。
+この配分は財務リターンの予測値ではなく、観測されたマーケットプレイスデータに基づく**相対的な資源配分優先度**です。
 
-## 最有力segment
+## 最有力セグメント
 
-`health_beauty × SP` は引き続き1位です。
+`health_beauty × SP` は引き続き最優先候補です。
 
-- Current GMV: **R$275,923**
-- Absolute GMV growth: **+R$205,740**
-- GMV growth: **+293%**
-- Late delivery rate: **7.10%**
-- Late delivery Wilson 95% CI: **[6.31%, 7.97%]**
-- Market late delivery rate: **8.17%**
-- Low-review rate: **10.34%**
-- Low-review Wilson 95% CI: **[9.41%, 11.36%]**
-- Market low-review rate: **14.62%**
-- Top-3 seller GMV share: **21.78%**
+* Current GMV: **R$275,923**
+* GMV絶対増加額: **+R$205,740**
+* GMV成長率: **+293%**
+* 配送遅延率: **7.10%**
+* 配送遅延率のWilson 95%信頼区間: **[6.31%, 7.97%]**
+* 市場全体の配送遅延率: **8.17%**
+* 低評価率: **10.34%**
+* 低評価率のWilson 95%信頼区間: **[9.41%, 11.36%]**
+* 市場全体の低評価率: **14.62%**
+* Top-3 seller GMV share: **21.78%**
 
-Point estimateだけでなく、比率KPIのsampling uncertaintyも明示します。
+比率KPIについては点推定値だけでなく、標本不確実性もWilson 95%信頼区間として明示します。
 
-## Model specification robustness
+## モデル仕様に対する頑健性
 
-Baseline scoreは、
+基準スコアは、説明可能性を優先したヒューリスティックな指標です。
 
-$$
-Score_s
+```math
+\mathrm{Score}_s =
+\mathrm{GMV}_s^{0.5}
+\Delta \mathrm{GMV}_s^{0.5}
+(1-\mathrm{Concentration}_s)
+```
+
+この指数設定の任意性を検証するため、以下の一般形を用います。
+
+```math
+\mathrm{Score}_s(\alpha,\beta,\gamma)
 =
-GMV_s^{0.5}\Delta GMV_s^{0.5}(1-Concentration_s)
-$$
+\mathrm{GMV}_s^{\alpha}
+\Delta \mathrm{GMV}_s^{\beta}
+(1-\mathrm{Concentration}_s)^{\gamma}
+```
 
-というheuristicです。
-
-この任意性を検証するため、
-
-$$
-Score_s(\alpha,\beta,\gamma)
-=
-GMV_s^{\alpha}\Delta GMV_s^{\beta}(1-Concentration_s)^{\gamma}
-$$
-
-として、
+評価するパラメータの組合せは以下のとおりです。
 
 ```text
 alpha ∈ {0.25, 0.50, 0.75, 1.00}
@@ -73,84 +72,90 @@ beta  ∈ {0.25, 0.50, 0.75, 1.00}
 gamma ∈ {0.00, 0.50, 1.00, 1.50, 2.00}
 ```
 
-の**80 specifications**を評価します。
+合計**80通りのモデル仕様**を評価します。
 
-ローカル再計算では、`health_beauty × SP` は**80/80 specificationsでrank 1**を維持しました。したがってトップ候補の結論は、平方根やseller concentration penaltyの特定仕様だけには依存していません。
+再計算の結果、`health_beauty × SP` は**80/80の仕様で1位**を維持しました。したがって、最優先候補という結論は、平方根変換や販売者集中度への特定のペナルティ設定だけには依存していません。
 
-## Candidate selection robustness
+## 候補選定に対する頑健性
 
-旧版では候補5segmentをSQLへ直接記述していました。これは再現性の弱点だったため廃止しました。
+旧版では5つの候補セグメントをSQLへ直接記述していました。この方法では候補選定に分析者の裁量が残り、再現性が弱いため廃止しました。
 
-現在は全category × stateから、
+現在は、すべての `category × state` について以下の順序で候補を生成します。
 
-1. 両比較期間で観測
-2. current GMV >= 95th percentile
-3. current orders >= 100
-4. positive absolute GMV growth
-5. positive market-share change
-6. operational risk gate
+1. Prior / Currentの両比較期間で観測されている
+2. Current GMVが95パーセンタイル以上
+3. Current orders >= 100
+4. GMV絶対増加額 > 0
+5. GMVシェア変化 > 0
+6. 運用品質に関するリスク除外基準を通過
 
-の順に候補を生成します。
+さらに、Current GMVのパーセンタイル閾値を90〜97.5、最低注文数を50〜200の範囲で変更した12条件を評価し、`health_beauty × SP` が機会選定基準から脱落しないことを確認します。
 
-さらにGMV percentileを90〜97.5、minimum ordersを50〜200で変える12条件を確認し、`health_beauty × SP` がopportunity screenから脱落しないことを確認します。
+## 下方リスク
 
-## Downside Risk
+### 1. 新規顧客獲得への依存
 
-### 1. 新規顧客獲得依存
+90日以内のリピート率が低く、市場成長は新規顧客流入への依存が大きい状態です。新規顧客獲得力が弱まった場合、GMV成長率も鈍化する可能性があります。
 
-90-day repeatが低く、market growthは新規顧客流入への依存が大きい状態です。Acquisition engineが弱まればGMV growthも鈍化する可能性があります。
+### 2. 販売者集中度
 
-### 2. Seller concentration
+Top-3 seller shareをスコアに含めていますが、集中度に対するペナルティ強度は構造的に推定された値ではありません。
 
-Top-3 seller shareをscoreに含めていますが、penalty強度は構造推定値ではありません。そのためgammaを0〜2まで振ってrank stabilityを検証します。
+そのため、`gamma` を0〜2の範囲で変更し、順位の安定性を検証します。
 
-### 3. Operational quality
+### 3. 運用品質
 
-Opportunity screenを通っても、late deliveryとlow reviewの両方がmarketより悪いsegmentは除外します。代表例として`watches_gifts × RJ` は旧分析同様、risk gateを通過しません。
+機会選定基準を通過したセグメントであっても、配送遅延率と低評価率の両方が市場全体の基準値より悪い場合は除外します。
 
-### 4. Screening assumptions
+代表例として、`watches_gifts × RJ` は旧分析と同様にリスク除外基準を通過しません。
 
-95th-percentile GMV thresholdと100-order thresholdは意思決定上のscreening assumptionsです。データ生成過程から推定された自然定数ではないため、sensitivity analysis対象とします。
+### 4. 選定閾値の任意性
+
+95パーセンタイルのGMV閾値と100件の最低注文数は、意思決定のために設定した選定上の仮定です。
+
+これらはデータ生成過程から推定された自然な定数ではないため、感応度分析の対象とします。
 
 ## ROI / IRRを算出しない理由
 
-公開データには以下がありません。
+公開データには、以下の情報が含まれていません。
 
-- take rate
-- net revenue
-- gross / contribution margin
-- CAC
-- marketing spend
-- seller acquisition cost
-- incremental investment requirement
-- cash flow
+* take rate
+* net revenue
+* gross margin / contribution margin
+* CAC
+* marketing spend
+* seller acquisition cost
+* 追加投資額
+* cash flow
 
-さらに、投資によるincremental GMVの因果効果も識別できません。
+さらに、投資によって生じる追加GMVの因果効果も識別できません。
 
-したがって、Commercial DDは**どのsegmentを優先するか**を回答し、Financial DDは**その投資が必要リターンを満たすか**を検証する役割と分離します。
+したがって、Commercial DDでは**どのセグメントを優先するか**を評価し、財務デューデリジェンスでは**その投資が必要なリターン水準を満たすか**を検証する役割に分離します。
 
 ## WAITからINVESTへ移行する条件
 
-1. segment-level take rate
+以下の情報を取得し、投資ハードルを満たすことを確認した場合に、判断を `INVEST` へ変更します。
+
+1. セグメント別take rate
 2. contribution margin
 3. CAC
-4. customer contribution LTV
-5. seller acquisition economics
-6. incremental marketing / operating investment
-7. investment -> incremental GMVの期待効果
-
-これらを取得し、投資ハードルを満たすことを確認した場合に`INVEST`へ変更します。
+4. 顧客別contribution LTV
+5. 販売者獲得に関する採算性
+6. 追加のmarketing / operating investment
+7. 投資による追加GMVの期待効果
 
 ## 再評価・撤退トリガー
 
-- comparable-period absolute GMV growth <= 0
-- GMV shareの継続低下
-- late deliveryとlow reviewがともにmarket benchmarkを上回る
-- seller concentration悪化によりrankが仕様依存になる
-- active customers / GMVの継続減少をrepeat purchasingで補えない
+以下のいずれかが発生した場合は、投資仮説を再評価します。
+
+* 比較対象期間におけるGMV絶対増加額 <= 0
+* GMVシェアが継続的に低下
+* 配送遅延率と低評価率の両方が市場全体の基準値を上回る
+* 販売者集中度の悪化により順位がモデル仕様へ強く依存する
+* アクティブ顧客数またはGMVの継続的な減少をリピート購入で補えない
 
 ## 結論
 
 最終判断は**WAIT**です。
 
-ただしCommercial DD上では、機械的な候補生成・比率KPIのconfidence interval・80通りのscore specificationを導入しても、**health_beauty × SPが最優先segment**という結論は維持されます。
+ただし、商業デューデリジェンス上では、機械的な候補生成、比率KPIの信頼区間、80通りのスコア仕様を導入した場合でも、**`health_beauty × SP` が最優先セグメントであるという結論は維持されます。**
